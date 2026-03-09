@@ -1,14 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  --color-surface: #0a0a0f;
-  --color-surface-raised: #12121a;
-  --color-surface-overlay: #1a1a26;
-  --color-border: #2a2a3a;
-  --color-border-bright: #3a3a50;
-  --color-text-primary: #e8e8f0;
-  --color-text-secondary: #8888a0;
-  --color-text-muted: #555568;
+  /* Dark theme (default) — overridden by .light class via CSS custom properties */
+  --color-surface: var(--th-surface);
+  --color-surface-raised: var(--th-surface-raised);
+  --color-surface-overlay: var(--th-surface-overlay);
+  --color-border: var(--th-border);
+  --color-border-bright: var(--th-border-bright);
+  --color-text-primary: var(--th-text-primary);
+  --color-text-secondary: var(--th-text-secondary);
+  --color-text-muted: var(--th-text-muted);
   --color-accent: #6366f1;
   --color-accent-dim: #4f46e5;
   --color-accent-glow: rgba(99, 102, 241, 0.15);
@@ -19,6 +20,34 @@
   --font-mono: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-body: "DM Sans", system-ui, sans-serif;
+}
+
+/* Dark theme tokens (default) */
+:root {
+  --th-surface: #0a0a0f;
+  --th-surface-raised: #12121a;
+  --th-surface-overlay: #1a1a26;
+  --th-border: #2a2a3a;
+  --th-border-bright: #3a3a50;
+  --th-text-primary: #e8e8f0;
+  --th-text-secondary: #8888a0;
+  --th-text-muted: #555568;
+}
+
+/* Light theme tokens */
+html.light {
+  --th-surface: #f5f5f7;
+  --th-surface-raised: #ffffff;
+  --th-surface-overlay: #eeeef0;
+  --th-border: #d4d4d8;
+  --th-border-bright: #a1a1aa;
+  --th-text-primary: #18181b;
+  --th-text-secondary: #52525b;
+  --th-text-muted: #a1a1aa;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 @layer base {
@@ -54,8 +83,28 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--th-border);
   border-radius: 3px;
+}
+
+/* Light mode overrides for shadows/glow */
+html.light .card-glow::before {
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.1),
+    transparent 50%,
+    rgba(99, 102, 241, 0.05)
+  );
+}
+
+html.light .shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--th-surface-raised) 25%,
+    var(--th-surface-overlay) 50%,
+    var(--th-surface-raised) 75%
+  );
+  background-size: 200% 100%;
 }
 
 /* Glow effect for cards */
@@ -138,6 +187,14 @@
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Search dropdown shadow */
+.search-dropdown {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+html.light .search-dropdown {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
 }
 
 /* Code block styling */

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useAuth } from "@/lib/auth-context";
 
 interface ScanInputProps {
   repoUrl: string;
@@ -9,6 +10,17 @@ interface ScanInputProps {
   onGithubTokenChange: (token: string) => void;
   onScan: () => void;
   scanning: boolean;
+  disabled?: boolean;
+  autoFocus?: boolean;
+}
+
+interface SearchResult {
+  name: string;
+  fullName: string;
+  url: string;
+  description: string | null;
+  stars: number;
+  language: string | null;
 }
 
 function detectProvider(url: string): "github" | "azure-devops" | null {
@@ -19,6 +31,18 @@ function detectProvider(url: string): "github" | "azure-devops" | null {
   return null;
 }
 
+function isUrlLike(input: string): boolean {
+  const trimmed = input.trim();
+  return (
+    trimmed.includes("github.com") ||
+    trimmed.includes("dev.azure.com") ||
+    trimmed.includes("visualstudio.com") ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+$/.test(trimmed)
+  );
+}
+
 export function ScanInput({
   repoUrl,
   githubToken,
@@ -26,127 +50,264 @@ export function ScanInput({
   onGithubTokenChange,
   onScan,
   scanning,
+  disabled = false,
+  autoFocus = false,
 }: ScanInputProps) {
+  const { github } = useAuth();
   const [showToken, setShowToken] = useState(false);
   const provider = useMemo(() => detectProvider(repoUrl), [repoUrl]);
 
+  // Search state
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const isAzDo = provider === "azure-devops";
 
-  const tokenLabel = isAzDo
-    ? "Azure DevOps Personal Access Token (required)"
-    : "Private repo? Add a token";
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  const tokenPlaceholder = isAzDo
-    ? "Azure DevOps PAT (Code: Read scope)"
-    : "ghp_xxxx (GitHub Personal Access Token)";
+  // Debounced search
+  const doSearch = useCallback(
+    (query: string) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+
+      if (query.trim().length < 2 || isUrlLike(query)) {
+        setSearchResults([]);
+        setShowDropdown(false);
+        setSearchError(null);
+        return;
+      }
+
+      debounceRef.current = setTimeout(async () => {
+        setSearchLoading(true);
+        setSearchError(null);
+        setShowDropdown(true);
+        setSelectedIndex(-1);
+
+        try {
+          const headers: Record<string, string> = {};
+          if (github?.token) {
+            headers["Authorization"] = `Bearer ${github.token}`;
+          }
+
+          const res = await fetch(
+            `/api/search-repos?q=${encodeURIComponent(query.trim())}`,
+            { headers }
+          );
+          const data = await res.json();
+
+          if (data.error) {
+            setSearchError(data.error);
+            setSearchResults([]);
+          } else {
+            setSearchResults(data.repos || []);
+          }
+        } catch {
+          setSearchError("Search failed");
+          setSearchResults([]);
+        } finally {
+          setSearchLoading(false);
+        }
+      }, 300);
+    },
+    [github?.token]
+  );
+
+  function handleInputChange(value: string) {
+    onRepoUrlChange(value);
+    doSearch(value);
+  }
+
+  function selectResult(repo: SearchResult) {
+    onRepoUrlChange(repo.url);
+    setShowDropdown(false);
+    setSearchResults([]);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (!showDropdown || searchResults.length === 0) {
+      if (e.key === "Enter" && !scanning && !disabled) onScan();
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((i) => Math.min(i + 1, searchResults.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((i) => Math.max(i - 1, -1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < searchResults.length) {
+        selectResult(searchResults[selectedIndex]);
+      } else if (!scanning && !disabled) {
+        setShowDropdown(false);
+        onScan();
+      }
+    } else if (e.key === "Escape") {
+      setShowDropdown(false);
+    }
+  }
+
+  function formatStars(stars: number): string {
+    if (stars >= 1000) return `${(stars / 1000).toFixed(stars >= 10000 ? 0 : 1)}k`;
+    return stars.toString();
+  }
 
   return (
-    <div className="rounded-xl border border-border bg-surface-raised p-5">
-      <div className="flex gap-3">
-        <div className="flex-1 relative">
-          <input
-            type="text"
-            value={repoUrl}
-            onChange={(e) => onRepoUrlChange(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !scanning && onScan()}
-            placeholder="GitHub or Azure DevOps repo URL"
-            className="w-full h-12 px-4 rounded-lg bg-surface border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/50 transition-colors"
-            style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}
-            disabled={scanning}
-          />
-          {/* Provider badge */}
-          {provider && repoUrl.trim() && (
-            <span
-              className={`absolute right-3 top-1/2 -translate-y-1/2 px-2 py-0.5 rounded text-[10px] font-medium uppercase ${
-                isAzDo
-                  ? "bg-blue-500/15 text-blue-400 border border-blue-500/20"
-                  : "bg-accent-glow text-accent border border-accent/20"
-              }`}
-            >
-              {isAzDo ? "Azure DevOps" : "GitHub"}
-            </span>
+    <div ref={wrapperRef} className="relative">
+      <div className="rounded-xl border border-border bg-surface-raised p-4 sm:p-5">
+        <div className="flex gap-3">
+          <div className="flex-1 relative">
+            <input
+              ref={inputRef}
+              type="text"
+              value={repoUrl}
+              onChange={(e) => handleInputChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => {
+                if (searchResults.length > 0 && !isUrlLike(repoUrl)) setShowDropdown(true);
+              }}
+              placeholder={disabled ? "Add your API key above to start scanning" : "Search GitHub repos or paste a URL..."}
+              className="w-full h-12 px-4 rounded-lg bg-surface border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/50 transition-colors disabled:opacity-50"
+              style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}
+              disabled={scanning || disabled}
+              autoFocus={autoFocus}
+            />
+            {/* Provider badge */}
+            {provider && repoUrl.trim() && (
+              <span
+                className={`absolute right-3 top-1/2 -translate-y-1/2 px-2 py-0.5 rounded text-[10px] font-medium uppercase ${
+                  isAzDo
+                    ? "bg-blue-500/15 text-blue-400 border border-blue-500/20"
+                    : "bg-accent-glow text-accent border border-accent/20"
+                }`}
+              >
+                {isAzDo ? "Azure DevOps" : "GitHub"}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => { setShowDropdown(false); onScan(); }}
+            disabled={scanning || !repoUrl.trim() || disabled}
+            className="h-12 px-6 rounded-lg bg-accent hover:bg-accent-dim disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium transition-colors flex items-center gap-2 shrink-0"
+          >
+            {scanning ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="hidden sm:inline">Scanning</span>
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Scan
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Token section */}
+        <div className="mt-3">
+          <button
+            onClick={() => setShowToken(!showToken)}
+            className="text-xs text-text-muted hover:text-text-secondary transition-colors flex items-center gap-1"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {showToken ? (
+                <polyline points="18 15 12 9 6 15" />
+              ) : (
+                <polyline points="6 9 12 15 18 9" />
+              )}
+            </svg>
+            {showToken ? "Hide token" : "Private repo? Add a token"}
+          </button>
+
+          {showToken && (
+            <input
+              type="password"
+              value={githubToken}
+              onChange={(e) => onGithubTokenChange(e.target.value)}
+              placeholder={isAzDo ? "Azure DevOps PAT (Code: Read scope)" : "ghp_xxxx (GitHub Personal Access Token)"}
+              className="mt-2 w-full h-10 px-4 rounded-lg bg-surface border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/50 transition-colors text-sm"
+              style={{ fontFamily: "var(--font-mono)" }}
+            />
           )}
         </div>
-        <button
-          onClick={onScan}
-          disabled={scanning || !repoUrl.trim()}
-          className="h-12 px-6 rounded-lg bg-accent hover:bg-accent-dim disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium transition-colors flex items-center gap-2"
-        >
-          {scanning ? (
-            <>
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Scanning
-            </>
-          ) : (
-            <>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              Scan
-            </>
+      </div>
+
+      {/* Search dropdown */}
+      {showDropdown && (
+        <div className="absolute left-0 right-0 top-full mt-1 rounded-xl border border-border bg-surface-raised search-dropdown z-50 overflow-hidden">
+          {searchLoading && (
+            <div className="px-4 py-3 flex items-center gap-2 text-sm text-text-muted">
+              <span className="w-3.5 h-3.5 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+              Searching GitHub...
+            </div>
           )}
-        </button>
-      </div>
 
-      {/* Supported providers hint */}
-      <div className="mt-2 flex items-center gap-3 text-xs text-text-muted">
-        <span>Supports:</span>
-        <span className="flex items-center gap-1">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-          GitHub
-        </span>
-        <span className="flex items-center gap-1">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M0 8.877L2.247 5.91l8.405-3.416V.022l7.37 5.393L2.966 8.338v8.225L0 8.877zm5.027 4.142l7.37 5.393L24 8.877l-2.247-2.967-8.405 3.416v2.472l-8.321 1.221z"/></svg>
-          Azure DevOps
-        </span>
-      </div>
+          {searchError && !searchLoading && (
+            <div className="px-4 py-3 text-sm text-warning">{searchError}</div>
+          )}
 
-      {/* Token section */}
-      <div className="mt-3">
-        <button
-          onClick={() => setShowToken(!showToken)}
-          className="text-xs text-text-muted hover:text-text-secondary transition-colors flex items-center gap-1"
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            {showToken ? (
-              <polyline points="18 15 12 9 6 15" />
-            ) : (
-              <polyline points="6 9 12 15 18 9" />
-            )}
-          </svg>
-          {showToken ? "Hide token" : tokenLabel}
-        </button>
+          {!searchLoading && !searchError && searchResults.length === 0 && (
+            <div className="px-4 py-3 text-sm text-text-muted">
+              No repositories found
+            </div>
+          )}
 
-        {showToken && (
-          <input
-            type="password"
-            value={githubToken}
-            onChange={(e) => onGithubTokenChange(e.target.value)}
-            placeholder={tokenPlaceholder}
-            className="mt-2 w-full h-10 px-4 rounded-lg bg-surface border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/50 transition-colors text-sm"
-            style={{ fontFamily: "var(--font-mono)" }}
-          />
-        )}
-      </div>
+          {!searchLoading &&
+            searchResults.map((repo, idx) => (
+              <button
+                key={repo.url}
+                onClick={() => selectResult(repo)}
+                onMouseEnter={() => setSelectedIndex(idx)}
+                className={`w-full text-left px-4 py-3 transition-colors border-b border-border/50 last:border-b-0 ${
+                  idx === selectedIndex ? "bg-accent-glow" : "hover:bg-surface-overlay"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-text-primary truncate">
+                    {repo.fullName}
+                  </span>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    {repo.language && (
+                      <span className="text-[10px] text-text-muted">{repo.language}</span>
+                    )}
+                    {repo.stars > 0 && (
+                      <span className="text-[10px] text-text-muted flex items-center gap-0.5">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-warning/70">
+                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                        </svg>
+                        {formatStars(repo.stars)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {repo.description && (
+                  <p className="text-xs text-text-muted mt-0.5 truncate">{repo.description}</p>
+                )}
+              </button>
+            ))}
+        </div>
+      )}
     </div>
   );
 }

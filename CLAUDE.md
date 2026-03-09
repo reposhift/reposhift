@@ -1,7 +1,7 @@
 # CLAUDE.md — RepoShift
 
 ## Project Overview
-RepoShift is an AI-powered codebase audit and standardization tool. Users paste a GitHub or Azure DevOps repo URL, and it analyzes the codebase across 7 categories using Claude API, then generates standards documents, AI infrastructure files, MCP recommendations, and remediation plans.
+RepoShift is an AI-powered codebase audit and standardization tool. Users paste a GitHub or Azure DevOps repo URL, and it analyzes the codebase across 7 categories using Claude API, then generates a complete AI-ready documentation kit following the two-layer pattern (tool-agnostic `ai/` directory + thin tool wrappers).
 
 **Live at:** `npm run dev` → http://localhost:3000
 **Domain:** reposhift.dev
@@ -13,24 +13,47 @@ RepoShift is an AI-powered codebase audit and standardization tool. Users paste 
 - **AI Engine:** Anthropic Claude API (`claude-sonnet-4-20250514`) via `@anthropic-ai/sdk`
 - **Repo Access:** GitHub REST API + Azure DevOps REST API (RepoProvider pattern in `lib/github.ts`)
 - **CLI:** Standalone Node.js script at `cli/reposhift.mjs` (zero dependencies, native fetch)
+- **ZIP Export:** `jszip` for client-side ZIP download
 
 ## Architecture
+
+### Routes
+- `/` — Landing page with hero, features overview
+- `/scan` — Scan dashboard (repo input, analysis, results, generation)
+- `/cli` — CLI documentation page
 
 ### Analysis Pipeline
 1. **Input** → `lib/github.ts` — `parseRepoUrl()` detects provider (GitHub/AzDo), `fetchRepoTree()` gets file tree, `fetchRepoFiles()` fetches key config + source files
 2. **Detection** → `lib/stack-detect.ts` — Identifies framework, language, build tool, test framework, styling from config files
 3. **Analysis** → `lib/analyzer.ts` — 7 category-specific Claude API calls, each with a focused prompt and JSON response format
-4. **Generation** → `lib/analyzer.ts` — 4 generators: Standards, AI Infrastructure, MCP Recommendations, Remediation Plan
-5. **API Routes** → `app/api/*/route.ts` — Thin wrappers that call analyzer functions
-6. **UI** → `app/page.tsx` + `components/` — Dashboard with scan input, category cards, findings panel, generate panel
+
+### Generation Pipeline (6 phases, 7 API calls)
+All generation happens via `generateDocumentationKit()` in `lib/analyzer.ts`, called by `POST /api/generate`.
+
+| Phase | Output | API Calls | Description |
+|-------|--------|-----------|-------------|
+| 1 | `ai/patterns.md` | 1 | SSOT — code patterns, naming, architecture |
+| 2 | `ai/agents/`, `ai/architecture/`, `ai/guides/`, `ai/mcp/` | 4 (parallel) | Specialized files referencing patterns.md |
+| 3 | `AGENTS.md` | 1 | Entry point with table of contents |
+| 4 | Tool wrappers (CLAUDE.md, .cursorrules, etc.) | 0 | Template-based, no API calls |
+| 5 | `REMEDIATION-PLAN.md` | 1 | Prioritized fix plan |
+| 6 | `ai/skills/create-pr/SKILL.md` | 0 | Static skill template |
+
+Tool wrappers also generate auto-discovery directories when applicable:
+- Claude → `.claude/agents/`, `.claude/skills/`
+- Cursor → `.cursor/rules/`
+- Windsurf → `.windsurf/rules/`
 
 ### Key Files
-- `lib/types.ts` — All TypeScript types, category metadata
+- `lib/types.ts` — All TypeScript types (`GeneratedFile`, `GenerationOutput`, `FileTreeNode`, `AITool`, category metadata)
 - `lib/github.ts` — Multi-provider repo client (GitHub + Azure DevOps)
 - `lib/stack-detect.ts` — Stack detection from config files
-- `lib/analyzer.ts` — Claude API prompts, analysis, and all generators
-- `app/page.tsx` — Main dashboard page (state management, scan flow)
-- `components/GeneratePanel.tsx` — 4-tab generate panel with AI tool selector
+- `lib/analyzer.ts` — Claude API client, analysis functions, and 6-phase documentation generator
+- `app/page.tsx` — Landing page
+- `app/scan/page.tsx` — Scan dashboard (state management, scan flow)
+- `app/cli/page.tsx` — CLI documentation
+- `components/GeneratePanel.tsx` — Documentation kit generator UI with file tree + preview
+- `components/FileTree.tsx` — Collapsible file tree component + `buildFileTree()` utility
 - `components/ScanInput.tsx` — URL input with provider detection badge
 - `cli/reposhift.mjs` — CLI tool
 
@@ -54,6 +77,3 @@ npm run build        # Production build
 npm run start        # Start production server
 node cli/reposhift.mjs audit --repo=<url>  # CLI audit
 ```
-
-## Known Issues & Priorities
-See the prompt below for current bugs and enhancement requests.

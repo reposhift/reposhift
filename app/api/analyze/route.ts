@@ -4,6 +4,8 @@ import { AuditCategory, RepoFile, RepoTreeEntry, StackInfo } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
   try {
+    const userApiKey = req.headers.get("x-api-key") || undefined;
+
     const { category, stack, tree, files } = (await req.json()) as {
       category: AuditCategory;
       stack: StackInfo;
@@ -18,14 +20,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!hasApiKey()) {
+    if (!hasApiKey() && !userApiKey) {
       return NextResponse.json(
-        { error: "ANTHROPIC_API_KEY not configured. Add it to .env.local" },
-        { status: 500 }
+        { error: "No API key available. Please provide your Anthropic API key." },
+        { status: 401 }
       );
     }
 
-    const result = await analyzeCategory(category, stack, tree, files);
+    const result = await analyzeCategory(category, stack, tree, files, userApiKey);
     return NextResponse.json(result);
   } catch (error) {
     const message =

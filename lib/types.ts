@@ -103,6 +103,42 @@ export interface ScanStatus {
   progress: number; // 0-100
 }
 
+// ============================================================
+// Documentation Kit Generation Types
+// ============================================================
+
+/** AI tool identifiers for wrapper generation */
+export type AITool = "claude" | "cursor" | "copilot" | "windsurf" | "codex" | "gemini";
+
+/** Generation mode */
+export type GenerationMode = "full" | "missing" | "update";
+
+/** A single generated file in the documentation kit */
+export interface GeneratedFile {
+  path: string;       // e.g. "ai/patterns.md"
+  content: string;    // markdown content
+  label: string;      // e.g. "Code Patterns (SSOT)"
+  phase: number;      // generation phase (1-6)
+  source?: "generated" | "existing"; // whether file was newly generated or kept from existing
+}
+
+/** Full generation output */
+export interface GenerationOutput {
+  files: GeneratedFile[];
+  selectedTools: AITool[];
+  generatedAt: string;
+  mode?: GenerationMode;
+}
+
+/** File tree node for UI rendering */
+export interface FileTreeNode {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  children?: FileTreeNode[];
+  label?: string;
+}
+
 /** Category metadata registry */
 export const CATEGORY_META: Record<AuditCategory, CategoryMeta> = {
   structure: {

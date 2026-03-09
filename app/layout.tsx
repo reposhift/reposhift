@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
+import { Providers } from "@/components/Providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "RepoShift — Audit. Standardize. Shift Forward.",
   description:
     "AI-powered codebase audit and standardization. Get senior architect-level intelligence for any repository.",
+  icons: {
+    icon: "/logo.svg",
+  },
 };
 
 export default function RootLayout({
@@ -13,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -26,7 +30,20 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen bg-surface">{children}</body>
+      <body className="min-h-screen bg-surface flex flex-col">
+        <Providers>
+          {children}
+          <footer className="mt-auto border-t border-border py-6 text-center text-xs text-text-primary/50">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p>&copy; {new Date().getFullYear()} RepoShift. Audit. Standardize. Shift Forward.</p>
+              <div className="flex items-center gap-4">
+                <a href="https://github.com/zbritzmd/reposhift" target="_blank" rel="noopener noreferrer" className="hover:text-text-primary transition-colors">GitHub</a>
+                <a href="/cli" className="hover:text-text-primary transition-colors">CLI</a>
+              </div>
+            </div>
+          </footer>
+        </Providers>
+      </body>
     </html>
   );
 }

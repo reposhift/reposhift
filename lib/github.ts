@@ -88,6 +88,26 @@ const KEY_FILES = [
   "*.csproj", "*.sln", "appsettings.json", "Program.cs", "Startup.cs",
 ];
 
+/** AI documentation files to detect and fetch (for existing doc detection) */
+const AI_DOC_FILES = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  ".cursorrules",
+  ".github/copilot-instructions.md",
+  ".windsurfrules",
+  "CODEX.md",
+  "GEMINI.md",
+  "ai/patterns.md",
+  "ai/agents/code-review.md",
+  "ai/agents/doc-update.md",
+  "ai/architecture/overview.md",
+  "ai/guides/common-mistakes.md",
+  "ai/guides/documentation-governance.md",
+  "ai/mcp/recommendations.md",
+  "ai/skills/create-pr/SKILL.md",
+  "REMEDIATION-PLAN.md",
+];
+
 const SOURCE_EXTENSIONS = [
   ".ts", ".tsx", ".js", ".jsx", ".py", ".rb", ".go", ".rs",
   ".java", ".cs", ".vue", ".svelte",
@@ -328,8 +348,13 @@ export async function fetchRepoFiles(
     .slice(0, 40)
     .map((b) => b.path);
 
-  // 3. Fetch all selected files in parallel (batched)
-  const allPaths = [...new Set([...keyFilePaths, ...sourceFiles])];
+  // 3. Fetch existing AI documentation files (for detection & update mode)
+  const existingDocPaths = blobs
+    .filter((b) => AI_DOC_FILES.some((df) => b.path === df))
+    .map((b) => b.path);
+
+  // 4. Fetch all selected files in parallel (batched)
+  const allPaths = [...new Set([...keyFilePaths, ...sourceFiles, ...existingDocPaths])];
   const batchSize = 10;
 
   for (let i = 0; i < allPaths.length; i += batchSize) {
