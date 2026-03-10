@@ -55,14 +55,28 @@ export default function CliPage() {
           Run RepoShift directly from your terminal. No URL needed inside a git repo.
         </p>
 
-        <div className="mt-10 max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Install */}
+        <div className="mt-10 max-w-4xl mx-auto">
+          <div className="rounded-xl border border-border bg-surface-raised p-6 animate-fade-up">
+            <h3 className="text-sm font-semibold text-text-primary mb-4">Install</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <CliSnippet label="Run directly (no install)" command="npx reposhift audit" />
+              <CliSnippet label="Or install globally" command="npm install -g reposhift" />
+            </div>
+            <p className="text-[10px] text-text-muted mt-3">
+              Requires Node.js 18+ and an <code className="text-text-secondary font-mono">ANTHROPIC_API_KEY</code> environment variable.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Quick Start */}
           <div className="rounded-xl border border-border bg-surface-raised p-6 animate-fade-up">
             <h3 className="text-sm font-semibold text-text-primary mb-4">Quick Start</h3>
             <div className="space-y-3">
-              <CliSnippet label="From inside a git repo" command="npx reposhift audit" />
-              <CliSnippet label="Specify a repo" command="npx reposhift audit --repo=owner/repo" />
-              <CliSnippet label="Detailed output" command="npx reposhift audit --verbose" />
+              <CliSnippet label="From inside a git repo" command="reposhift audit" />
+              <CliSnippet label="Specify a repo" command="reposhift audit --repo=owner/repo" />
+              <CliSnippet label="Detailed output" command="reposhift audit --verbose" />
             </div>
           </div>
 
