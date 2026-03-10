@@ -66,7 +66,7 @@ export default function CliPage() {
               <path d="M48 48h160v160h-32V80h-48v128H48z" fill="#fff"/>
             </svg>
             reposhift on npm
-            <span className="text-text-muted">v0.1.1</span>
+            <span className="text-text-muted">v0.1.2</span>
           </a>
         </div>
 
