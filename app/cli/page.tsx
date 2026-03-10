@@ -54,6 +54,21 @@ export default function CliPage() {
         <p className="mt-3 text-text-secondary text-center text-sm max-w-lg mx-auto">
           Run RepoShift directly from your terminal. No URL needed inside a git repo.
         </p>
+        <div className="mt-4 flex justify-center">
+          <a
+            href="https://www.npmjs.com/package/reposhift"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-surface-raised hover:bg-surface-overlay text-text-secondary hover:text-text-primary text-xs font-medium transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor">
+              <path d="M0 256V0h256v256z" fill="#C12127"/>
+              <path d="M48 48h160v160h-32V80h-48v128H48z" fill="#fff"/>
+            </svg>
+            reposhift on npm
+            <span className="text-text-muted">v0.1.0</span>
+          </a>
+        </div>
 
         {/* Install */}
         <div className="mt-10 max-w-4xl mx-auto">
