@@ -9,7 +9,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "audit": "node cli/reposhift.mjs audit"
+    "audit": "node cli/reposhift.mjs audit",
+    "cli:sync": "cp cli/reposhift.mjs packages/cli/reposhift.mjs",
+    "cli:publish": "npm run cli:sync && cd packages/cli && npm publish"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

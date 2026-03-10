@@ -1,0 +1,36 @@
+{
+  "name": "reposhift",
+  "version": "0.1.0",
+  "description": "AI-powered codebase audit and documentation generator. Audit. Standardize. Shift Forward.",
+  "type": "module",
+  "bin": {
+    "reposhift": "./bin.mjs"
+  },
+  "files": [
+    "bin.mjs",
+    "reposhift.mjs"
+  ],
+  "keywords": [
+    "ai",
+    "audit",
+    "codebase",
+    "documentation",
+    "standards",
+    "claude",
+    "anthropic",
+    "cli",
+    "code-review",
+    "remediation"
+  ],
+  "author": "Zak Britz",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zbritzmd/reposhift.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://reposhift.dev",
+  "engines": {
+    "node": ">=18"
+  }
+}
