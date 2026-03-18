@@ -29,7 +29,7 @@ function CliSnippet({ label, command }: { label: string; command: string }) {
 
 const FLAGS = [
   ["--repo=<url>", "Repository URL (auto-detected from git remote if omitted)"],
-  ["--token=<pat>", "Personal Access Token for private repos"],
+  ["--token=<pat>", "Access token override (Azure DevOps PAT or GitHub PAT)"],
   ["--api-key=<key>", "Anthropic API key (alternative to env var)"],
   ["--json", "Output raw JSON instead of formatted report"],
   ["--verbose", "Show full finding descriptions and suggestions in report"],
@@ -100,6 +100,7 @@ export default function CliPage() {
             <div className="space-y-3">
               <CliSnippet label="From inside a git repo" command="reposhift audit" />
               <CliSnippet label="Specify a repo" command="reposhift audit --repo=owner/repo" />
+              <CliSnippet label="Login to GitHub (for private repos)" command="reposhift login" />
               <CliSnippet label="Detailed output" command="reposhift audit --verbose" />
             </div>
           </div>
@@ -140,10 +141,18 @@ export default function CliPage() {
             </div>
 
             {/* Env vars */}
+            <h4 className="text-xs font-semibold text-text-primary mt-6 mb-2">Authentication</h4>
+            <div className="space-y-1 text-xs text-text-muted">
+              <p>GitHub repos authenticate automatically:</p>
+              <p className="pl-3">1. Uses <code className="text-text-secondary font-mono">gh auth token</code> if GitHub CLI is installed</p>
+              <p className="pl-3">2. Uses cached token from <code className="text-text-secondary font-mono">~/.reposhift/github-token</code></p>
+              <p className="pl-3">3. Prompts device flow login (opens browser) if needed</p>
+              <p className="mt-2">Azure DevOps requires <code className="text-text-secondary font-mono">--token=&lt;PAT&gt;</code> or <code className="text-text-secondary font-mono">AZURE_DEVOPS_TOKEN</code> env var.</p>
+            </div>
+
             <h4 className="text-xs font-semibold text-text-primary mt-6 mb-2">Environment Variables</h4>
             <div className="space-y-1 text-xs text-text-muted">
               <p><code className="text-text-secondary font-mono">ANTHROPIC_API_KEY</code> — Required. Claude API key.</p>
-              <p><code className="text-text-secondary font-mono">GITHUB_TOKEN</code> — Optional. GitHub PAT for private repos.</p>
               <p><code className="text-text-secondary font-mono">AZURE_DEVOPS_TOKEN</code> — Optional. Azure DevOps PAT.</p>
             </div>
 
